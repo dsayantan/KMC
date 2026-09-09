@@ -53,6 +53,7 @@ select:focus,input:focus{outline:2px solid var(--red-lt);border-color:var(--red)
   border-radius:99px;background:#fff;color:var(--ink-2);cursor:pointer}
 .chip[aria-pressed=true]{background:var(--red-lt);border-color:var(--red);color:var(--red-dk);font-weight:600}
 .hint{font-size:11px;color:var(--ink-2)}
+.phone-only{display:none}
 .chip .hint{color:inherit;opacity:.75}
 .picker{width:100%;font-size:12.5px}
 .picker>summary{cursor:pointer;color:var(--red-dk);font-weight:600;
@@ -114,15 +115,16 @@ footer.notes .more b{color:var(--ink)}
   .page{margin:0;border-width:0 0 2px;border-radius:0;
     height:100vh;height:100dvh;
     padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
-  .mast{flex-wrap:wrap;gap:8px;padding:8px 12px;align-items:flex-start}
-  .mast img{height:32px}
-  .mast h1{font-size:15px;line-height:1.3}
-  .mast .sub{font-size:10.5px;line-height:1.45}
-  .mast-txt{flex:1 1 60%;min-width:0}
+  /* one line: logo, title, language.  The strapline, the spacer and the date
+     badge all go -- the title already says which corporation and which year. */
+  .mast{flex-wrap:nowrap;gap:9px;padding:7px 12px;align-items:center}
+  .mast img{height:30px}
+  .mast h1{font-size:15px;line-height:1.25;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mast-txt{flex:1 1 auto;min-width:0}
   .mast .spacer{display:none}
-  .mast .right{flex-direction:row;align-items:center;gap:8px;
-    flex:1 1 100%;justify-content:space-between;order:3}
-  .badge{font-size:10.5px;padding:3px 9px}
+  .mast .right{flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;order:0}
+  .badge{display:none}
 
   .controls{padding:9px 12px}
   .row{gap:9px 10px}
@@ -130,6 +132,21 @@ footer.notes .more b{color:var(--ink)}
   /* one field per line, except the two little toggles which sit side by side */
   .fld{flex:1 1 100%;min-width:0}
   .fld.half{flex:1 1 calc(50% - 5px)}
+  /* the AC filter and the search box are dropped on phones -- they cost two
+     full rows of the little vertical space the table has.  Cleared in JS too,
+     so a filter set on a wide screen cannot go on filtering invisibly. */
+  .mobile-hide{display:none!important}
+
+  /* A phone screen is mostly table.  The masthead strapline, the column chips,
+     the per-column picker and the KPI strip all fold away behind the Options
+     button, which frees roughly 190px -- the difference between one visible row
+     and ten.  Everything is one tap away, and desktop is untouched. */
+  .phone-only{display:flex}
+  .mast .sub{display:none}
+  #row-cols,#row-pick,.kpis{display:none}
+  body.opts-open #row-cols,body.opts-open #row-pick{display:flex}
+  body.opts-open .kpis{display:flex}
+  #opts[aria-pressed=true]{background:var(--red);color:#fff}
   select,input[type=search]{min-width:0;width:100%;font-size:16px;padding:8px}
   .seg{width:100%}
   .seg button{flex:1;padding:8px 6px;font-size:12.5px}
@@ -159,7 +176,6 @@ footer.notes .more b{color:var(--ink)}
 }
 
 @media (max-width:380px){
-  .mast .sub{display:none}
   td.sticky,th.sticky{max-width:88px;min-width:74px}
   .fld.half{flex:1 1 100%}
 }
@@ -193,7 +209,7 @@ footer.notes .more b{color:var(--ink)}
 
   <section class="controls">
     <div class="row">
-      <div class="fld"><label for="ac" id="l-ac"></label>
+      <div class="fld mobile-hide"><label for="ac" id="l-ac"></label>
         <select id="ac"></select></div>
       <div class="fld half"><label id="l-mode"></label>
         <div class="seg" id="mode">
@@ -202,14 +218,16 @@ footer.notes .more b{color:var(--ink)}
         </div></div>
       <div class="fld half"><label id="l-exp"></label>
         <div class="seg"><button id="expand" type="button"></button></div></div>
-      <div class="fld"><label for="q" id="l-q"></label>
+      <div class="fld half phone-only"><label id="l-opts"></label>
+        <div class="seg"><button id="opts" type="button" aria-pressed="false"></button></div></div>
+      <div class="fld mobile-hide"><label for="q" id="l-q"></label>
         <input id="q" type="search"></div>
     </div>
-    <div class="row">
+    <div class="row" id="row-cols">
       <div class="fld" style="flex:1"><label id="l-cols"></label>
         <div class="chips" id="grps"></div></div>
     </div>
-    <div class="row">
+    <div class="row" id="row-pick">
       <details class="picker" style="flex:1">
         <summary id="pick-sum"></summary>
         <div class="pbar"><button class="chip" id="pick-all" type="button"></button>
@@ -242,6 +260,7 @@ const T = {
     ac:'বিধানসভা কেন্দ্র', allAc:'সব বিধানসভা কেন্দ্র',
     figures:'হিসাব', pct:'শতাংশ', num:'সংখ্যা',
     boothsLbl:'বুথ', expand:'সব খুলুন / বন্ধ করুন',
+    optsLbl:'আরও', opts:'কলাম ও হিসাব',
     find:'খুঁজুন', qph:'ওয়ার্ড নম্বর, কেন্দ্র, দল বা পদবি…',
     columns:'কলাম', pickSum:'কলাম আলাদা আলাদা বেছে নিন — দল সহ',
     pickAll:'সব / কিছু নয়', pickHint:'উপরের চিপে ক্লিক করলে গোটা ভাগটি চালু বা বন্ধ হয়।',
@@ -276,6 +295,7 @@ const T = {
     ac:'Assembly constituency', allAc:'All assembly constituencies',
     figures:'Figures', pct:'Percentage', num:'Numbers',
     boothsLbl:'Booths', expand:'Expand / collapse all',
+    optsLbl:'More', opts:'Columns & stats',
     find:'Find', qph:'ward no, AC, party or surname',
     columns:'Columns', pickSum:'Choose columns one by one — parties included',
     pickAll:'All / none', pickHint:'A group chip above turns its whole block on or off.',
@@ -624,6 +644,10 @@ $('#pick-all').addEventListener('click', ()=>{
   S.on = new Set(all ? [] : FIELDS.map(f=>f.id));
   fillGroups(); render();
 });
+$('#opts').addEventListener('click', ()=>{
+  const on = document.body.classList.toggle('opts-open');
+  $('#opts').setAttribute('aria-pressed', String(on));
+});
 $('#expand').addEventListener('click', ()=>{
   const rows = currentRows();
   if(S.open.size) S.open.clear(); else for(const r of rows) S.open.add(r.key);
@@ -660,6 +684,8 @@ function chrome(){
   $('#mode').children[0].textContent = L.pct;
   $('#mode').children[1].textContent = L.num;
   $('#expand').textContent = L.expand;
+  $('#l-opts').textContent = L.optsLbl;
+  $('#opts').textContent = L.opts;
   $('#pick-sum').textContent = L.pickSum;
   $('#pick-all').textContent = L.pickAll;
   $('#pick-hint').textContent = L.pickHint;
@@ -682,7 +708,22 @@ $('#lang').addEventListener('click', e=>{
   chrome(); fillACs(); fillGroups(); render();
 });
 
+/* The AC filter and the search box are hidden on phones (see page.css).  A
+   control the reader cannot see must not keep filtering, so clear both whenever
+   the viewport is that narrow -- on load and on any resize or rotation. */
+const PHONE = window.matchMedia('(max-width:640px)');
+function syncPhone(){
+  if(!PHONE.matches) return false;
+  if(S.ac==='' && S.q==='') return false;
+  S.ac = ''; S.q = ''; S.open.clear();
+  $('#ac').value = ''; $('#q').value = '';
+  return true;
+}
+PHONE.addEventListener ? PHONE.addEventListener('change', ()=>{ syncPhone(); render(); })
+                       : PHONE.addListener(()=>{ syncPhone(); render(); });
+
 /* ------------------------------------------------------------------ boot */
+syncPhone();
 chrome();
 fillACs(); fillGroups(); render();
 

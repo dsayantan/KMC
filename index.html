@@ -78,11 +78,19 @@ th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;white
 th{position:sticky;top:0;z-index:3;background:var(--red-dk);color:#fff;font-size:11.5px;
   font-weight:650;letter-spacing:.3px;cursor:pointer;user-select:none}
 th:hover{background:var(--red)}
-th.sticky,td.sticky{position:sticky;left:0;z-index:2;background:var(--paper)}
+/* two frozen columns: the serial number, then the ward.  The serial is a
+   position counter, not data -- it always reads 1,2,3 down the page whatever the
+   sort, so the row where a column crosses a threshold tells you how many rows
+   are above it. */
+th.sn,td.sn{position:sticky;left:0;z-index:2;background:var(--paper);
+  width:38px;min-width:38px;max-width:38px;padding:6px 6px;
+  text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+th.sn{z-index:4;background:var(--red-dk);color:#fff;cursor:default}
+th.sticky,td.sticky{position:sticky;left:38px;z-index:2;background:var(--paper)}
 th.sticky{z-index:4;background:var(--red-dk)}
 td.t,th.t{text-align:left}
 tbody tr:nth-child(even) td{background:#fbf7f6}
-tbody tr:nth-child(even) td.sticky{background:#fbf7f6}
+tbody tr:nth-child(even) td.sticky,tbody tr:nth-child(even) td.sn{background:#fbf7f6}
 tr.wrow{cursor:pointer}
 tr.wrow:hover td{background:var(--red-lt)}
 tr.kid td{background:#f4f7fb!important;font-size:13px;color:var(--ink-2)}
@@ -169,14 +177,16 @@ footer.notes .more b{color:var(--ink)}
   th{font-size:10.5px}
   td.t,th.t{max-width:150px}
   /* the frozen ward column has to stay narrow or nothing else fits */
-  td.sticky,th.sticky{max-width:104px;min-width:82px}
+  th.sn,td.sn{width:28px;min-width:28px;max-width:28px;padding:5px 4px;font-size:11px}
+  td.sticky,th.sticky{left:28px;max-width:104px;min-width:78px}
   tr.kid td.t{padding-left:12px}
   .exp{width:11px}
   footer.notes{padding:9px 12px;font-size:11px;max-height:42vh}
 }
 
 @media (max-width:380px){
-  td.sticky,th.sticky{max-width:88px;min-width:74px}
+  th.sn,td.sn{width:24px;min-width:24px;max-width:24px;padding:5px 3px;font-size:10.5px}
+  td.sticky,th.sticky{left:24px;max-width:88px;min-width:70px}
   .fld.half{flex:1 1 100%}
 }
 
@@ -265,6 +275,7 @@ const T = {
     columns:'কলাম', pickSum:'কলাম আলাদা আলাদা বেছে নিন — দল সহ',
     pickAll:'সব / কিছু নয়', pickHint:'উপরের চিপে ক্লিক করলে গোটা ভাগটি চালু বা বন্ধ হয়।',
     tip:'ওয়ার্ডে ক্লিক করলে তার বুথ খুলবে · শিরোনামে ক্লিক করলে সাজানো হবে',
+    snTip:'সাজানোর পরেও ক্রম উপর থেকে ১, ২, ৩… — কত ওয়ার্ড, গুনে নিতে সুবিধা',
     ward:'ওয়ার্ড', wardN:n=>'ওয়ার্ড '+n, acShort:'কেন্দ্র', acName:'কেন্দ্রের নাম',
     booths:'বুথ', boothN:n=>'বুথ '+n, partly:'আংশিক', noSection:'—',
     valid:'বৈধ ভোট', winner:'জয়ী', margin:'ব্যবধান %', surname:i=>'পদবি '+i,
@@ -300,6 +311,7 @@ const T = {
     columns:'Columns', pickSum:'Choose columns one by one — parties included',
     pickAll:'All / none', pickHint:'A group chip above turns its whole block on or off.',
     tip:'Click a ward to open its booths · click a header to sort',
+    snTip:'Position in the list as sorted, always 1, 2, 3 from the top - counts how many rows are above a cut-off',
     ward:'Ward', wardN:n=>'Ward '+n, acShort:'AC', acName:'AC name',
     booths:'Booths', boothN:n=>'Booth '+n, partly:'partly', noSection:'—',
     valid:'Valid votes', winner:'Winner', margin:'Margin %', surname:i=>'Surname '+i,
@@ -493,6 +505,7 @@ function render(){
         + (tip?` title="${esc(tip)}"`:'') + `>${esc(lab)}${ar(k)}</th>`;
 
   let h = '<tr>';
+  h += `<th class="sn" title="${esc(t().snTip)}">#</th>`;
   h += th('k0',t().ward,'t sticky');
   h += th('ac',t().acShort);
   h += th('acn',t().acName,'t');
@@ -522,8 +535,9 @@ function render(){
     return x;
   };
 
-  const line = (r, kid) => {
+  const line = (r, kid, sn) => {
     let x = `<tr class="${kid?'kid':'wrow'}" data-key="${r.key}">`;
+    x += `<td class="sn">${kid ? '' : sn}</td>`;
     if(kid){
       x += `<td class="t sticky">${esc(t().boothN(r.no))}`
          + (r.partly?`<span class="tag">${esc(t().partly)}</span>`:'') + '</td>';
@@ -540,15 +554,17 @@ function render(){
   };
 
   const body = [];
+  let sn = 0;
   for(const r of rows){
-    body.push(line(r,false));
+    body.push(line(r, false, ++sn));
     if(S.open.has(r.key))
-      for(const k of [...r.kids].sort((a,b)=>a.no-b.no)) body.push(line(k,true));
+      for(const k of [...r.kids].sort((a,b)=>a.no-b.no)) body.push(line(k, true));
   }
   if(rows.length > 1){
     const g = rollup(rows.flatMap(r=>r.kids), 'ALL');
     g.win = winner(g);
-    let x = `<tr class="tot"><td class="t sticky">${esc(t().allShown)}</td>`
+    let x = `<tr class="tot"><td class="sn"></td>`
+          + `<td class="t sticky">${esc(t().allShown)}</td>`
           + `<td></td><td class="t">${esc(t().wardRows(rows.length))}</td>`
           + `<td class="t">${fmtInt(g.n)}</td>`;
     for(const f of fields) x += fcell(g, f);
